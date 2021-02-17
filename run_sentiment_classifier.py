@@ -1,48 +1,55 @@
-import csv
-import urllib.request
+# https://stackoverflow.com/questions/7370801/how-to-measure-elapsed-time-in-python
+from timeit import default_timer as timer
 
 import torch
 from transformers import AutoTokenizer
+from transformers import AutoModelForSequenceClassification
 
-from preprocessing import preprocess
-# from tokenizer import PretrainedTokenizer
-from classifier import PretrainedSequenceClassifier
+from utils import preprocess, download_label_mapping, output_vector_to_labels
 
-def download_label_mapping():
-    labels=[]
-    mapping_link = f"https://raw.githubusercontent.com/cardiffnlp/tweeteval/main/datasets/sentiment/mapping.txt"
-    with urllib.request.urlopen(mapping_link) as f:
-        html = f.read().decode('utf-8').split("\n")
-        csvreader = csv.reader(html, delimiter='\t')
-    labels = [row[1] for row in csvreader if len(row) > 1]
-    return labels
 
-tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment", torchscript=True)
-# tokenizer = PretrainedTokenizer("cardiffnlp/twitter-roberta-base-sentiment")
+def run_model(model, tokenized_input):
+    output = model(**tokenized_input)
+    return output_vector_to_labels(output, download_label_mapping())
 
-clf = PretrainedSequenceClassifier("cardiffnlp/twitter-roberta-base-sentiment", labels=download_label_mapping())
 
-input_text = preprocess("I don't think it's gonna work")
+def check_inference_time(model, tokenized_input):
+    t = timer()
+    scores = run_model(model, tokenized_input)
+    elapsed_time = timer()-t
+    return elapsed_time
 
-tokenized_input = tokenizer(input_text, return_tensors='pt')
-print(tokenized_input)
+if __name__ == "__main__":
+    tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment", torchscript=True)
+    clf = AutoModelForSequenceClassification.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment", torchscript=True)
 
-# 1. Vanilla
-output = clf.predict_labels(tokenized_input)
-print(output)
+    input_texts = [
+        "Hello world",
+        "Happy birthday",
+        "I don't think it's gonna work",
+        "I enjoy natural language understanding"
+    ]
 
-# 2. TorchScript (JIT)
-# encoded_input = tokenizer.encode(input_text)
-# print(encoded_input)
+    # 1. Vanilla
+    tokenized_inputs = [tokenizer(x, return_tensors='pt') for x in input_texts]
+    outputs = [run_model(clf, x) for x in tokenized_inputs]
+    output_times = [check_inference_time(clf, x) for x in tokenized_inputs]
+    
+    for inp, out in zip(input_texts, outputs):
+        print(inp, out)
 
-# print(clf.predict_labels(tokenized_input))
+    print(output_times)
 
-# input_ids = tokenizer.tokenizer.convert_tokens_to_ids(encoded_input)
-# print(indexed_tokens)
-# input_ids = torch.tensor(encoded_input).unsqueeze(0)
-# print(input_ids)
+    print("")
 
-# print(input_ids)
-# traced_model = torch.jit.trace(clf.model, input_ids)
-# print(traced_model)
-# torch.jit.save(traced_model, "traced_twitter_roberta_base_sentiment.pt")
+    # 2. TorchScript (JIT)
+    tokenized_inputs = [tokenizer(x, return_tensors='pt') for x in input_texts]
+    traced_model = torch.jit.trace(clf, (tokenized_inputs[0]['input_ids'], tokenized_inputs[0]['attention_mask']))
+    outputs = [run_model(traced_model, x) for x in tokenized_inputs]
+    output_times = [check_inference_time(traced_model, x) for x in tokenized_inputs]
+    # torch.jit.save(traced_model, "traced_twitter_roberta_base_sentiment.pt")
+    # loaded_model = torch.jit.load("traced_twitter_roberta_base_sentiment.pt")
+    for inp, out in zip(input_texts, outputs):
+        print(inp, out)
+
+    print(output_times)
