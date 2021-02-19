@@ -7,6 +7,10 @@ name = "pypi"
 transformers = {extras = ["torch"], version = "*"}
 scipy = "*"
 matplotlib = "*"
+seaborn = "*"
+pandas = "*"
+onnxruntime = "*"
+onnx = "*"
 
 [dev-packages]
 

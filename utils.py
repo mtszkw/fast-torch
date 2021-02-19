@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+import pandas as pd
 import urllib.request
 from scipy.special import softmax
 
@@ -22,7 +23,10 @@ def download_label_mapping():
     return labels
 
 def output_vector_to_labels(output, labels_map):
-    scores = output[0][0].detach().numpy()
+    if isinstance(output[0][0], np.ndarray):
+        scores = output[0][0]
+    else:
+        scores = output[0][0].detach().numpy()
     scores = softmax(scores)
 
     scores_map = {}
@@ -34,3 +38,11 @@ def output_vector_to_labels(output, labels_map):
         scores_map[l] = np.round(float(s), 4)
         # print(f"{i+1}) {l} {np.round(float(s), 4)}")
     return scores_map
+
+def measurements_to_dataframe(measurements, indices):
+    data = []
+    for seq_id, time in zip(indices, measurements):
+        data.append([seq_id, time, 'Unknown'])
+    df = pd.DataFrame(data, columns=['SequenceId', 'TimeInSeconds', 'Mode'])
+    print(df)
+    return df
