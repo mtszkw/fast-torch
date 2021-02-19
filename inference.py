@@ -18,10 +18,6 @@ class PythonInference:
         for i in range(num_experiments):
             time_measurements.append([self.check_inference_time(x) for x in tokenized_inputs])
         return np.array(time_measurements)
-        # t = timer()
-        # output = self.model(**tokenized_input)
-        # elapsed_time = timer()-t
-        # return elapsed_time
 
 
 class OnxxInference:
