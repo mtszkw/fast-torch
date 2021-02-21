@@ -24,7 +24,7 @@ if __name__ == "__main__":
     input_texts = [preprocess(x) for x in read_test_sequences("test_sequences.txt")]
     tokenized_inputs = [tokenizer(x, return_tensors='pt') for x in input_texts]
     
-    n_experiments = 2
+    n_experiments = 1000
     indices = np.tile(np.arange(len(input_texts)), n_experiments)
 
     
